@@ -5,22 +5,42 @@
 ## 仕組み
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  config.toml    │────>│ mw-upgrade-check │────>│  JSON / Text    │
-│  (設定ファイル)   │     │     .py          │     │  (変更点一覧)    │
-└─────────────────┘     └────────┬─────────┘     └─────────────────┘
-                                 │
-                    ┌────────────┴────────────┐
-                    │                         │
-              ┌─────▼─────┐           ┌───────▼───────┐
-              │ data/*.toml│           │  Web Fetch    │
-              │ (ローカル)  │           │ (php.watch等) │
-              └───────────┘           └───────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        config.toml                              │
+│  [[middleware]]                                                 │
+│  name = "php"                                                   │
+│  current = "8.2"                                                │
+│  target = "^8.5"                                                │
+│  sources = ["github", "local"]  ← 複数ソース指定                 │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     mw_upgrade_check.py                         │
+│                                                                 │
+│  1. config.toml を読み込み                                       │
+│  2. 指定された各ソースから独立してデータ取得                        │
+│  3. ソースごとに分類・集計して出力                                 │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            ▼                   ▼                   ▼
+    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+    │    GitHub    │    │  php.watch   │    │    Local     │
+    │   UPGRADING  │    │   (HTML)     │    │   *.toml     │
+    │  (Markdown)  │    │              │    │              │
+    └──────────────┘    └──────────────┘    └──────────────┘
+    php/php-src の      php.watch/versions   data/ 内の
+    公式ドキュメント      からスクレイプ        手動管理データ
 ```
 
-1. **設定ファイル読込**: `config.toml` から対象ミドルウェアと現在/目標バージョンを取得
-2. **変更点取得**: ローカルTOMLデータを優先し、なければWebから取得
-3. **分類・出力**: 破壊的変更・非推奨・削除・新機能に分類してJSON/テキスト出力
+## データソース
+
+| ソース | URL | 特徴 |
+|--------|-----|------|
+| `github` | `github.com/php/php-src/UPGRADING` | 公式・最新・Markdown |
+| `php.watch` | `php.watch/versions/{version}` | 見やすいが非公式 |
+| `local` | `data/php-X.X-changes.toml` | オフライン・カスタマイズ可能 |
 
 ## インストール
 
@@ -31,11 +51,11 @@ cd mw-auto-updater
 # uv で仮想環境セットアップ
 uv sync
 
-# または直接実行
+# 実行
 uv run mw-upgrade-check --output=text
 ```
 
-依存: Python 3.9+, [uv](https://docs.astral.sh/uv/) (推奨), jq (オプション)
+依存: Python 3.9+, [uv](https://docs.astral.sh/uv/) (推奨)
 
 ## 使い方
 
@@ -45,61 +65,87 @@ uv run mw-upgrade-check --output=text
 # config.toml
 [[middleware]]
 name = "php"
-current = "8.2"      # 現在のバージョン
-target = "^8.5"      # 目標バージョン (^8.5 = 8.5.x)
+current = "8.2"                    # 現在のバージョン
+target = "^8.5"                    # 目標バージョン
+sources = ["github", "local"]      # データソース（複数指定可）
 ```
 
 ### 2. 実行
 
 ```bash
-# テキスト形式で出力（人間が読みやすい）
+# テキスト形式で出力
 uv run mw-upgrade-check --output=text
 
 # JSON形式で出力（AI/スクリプト連携用）
 uv run mw-upgrade-check
-
-# ローカルデータのみ使用（Webフェッチなし）
-uv run mw-upgrade-check --no-web
 ```
 
 ### 3. 出力例
 
 ```
-============================================================
+======================================================================
 Middleware: PHP
 Upgrade: 8.2 → 8.5
-============================================================
+Versions: 8.3, 8.4, 8.5
+======================================================================
 
-Summary:
-  Total changes: 40
-  Breaking:      4
-  Deprecations:  23
+📦 Source: github
+   Total: 29 | Breaking: 3 | Deprecations: 13 | Removed: 0 | New: 13
 
-⚠️  BREAKING CHANGES:
-  [8.3] mb_strimwidth() behavior change
-  [8.4] exit() and die() are now proper language constructs
+   ⚠️  BREAKING CHANGES (github):
+      [8.3] Calendar easter_date() now supports years...
+      [8.4] TypeError for invalid offset types...
 
-⚡ DEPRECATIONS:
-  [8.3] Dynamic properties are deprecated
-       → Use declared properties or #[AllowDynamicProperties]
-  [8.5] Backtick operator (shell_exec alias) is deprecated
-       → Use shell_exec() function instead
+   ⚡ DEPRECATIONS (github):
+      [8.3] Using the ++ operator on empty strings is deprecated
+      [8.5] Binding an instance to a static closure...
+
+📦 Source: local
+   Total: 40 | Breaking: 4 | Deprecations: 23 | Removed: 1 | New: 12
+
+   ⚠️  BREAKING CHANGES (local):
+      [8.3] mb_strimwidth() behavior change
+      [8.4] exit() and die() are now proper language constructs
+
+   ⚡ DEPRECATIONS (local):
+      [8.3] Dynamic properties are deprecated
+         → Use declared properties or #[AllowDynamicProperties]
 ```
 
-## AI連携での使用例
+## 処理フロー
 
-```bash
-# 変更点を取得してプロジェクト内を検索
-uv run mw-upgrade-check | jq -r '.[].deprecations[].pattern | select(. != null)' | while read p; do
-  grep -rn "$p" ./your-project/src/ 2>/dev/null
-done
+1. **設定読込**: `config.toml` からミドルウェア情報と対象ソースを取得
+2. **バージョン展開**: `8.2 → 8.5` を `[8.3, 8.4, 8.5]` に展開
+3. **ソース別取得**: 各ソースから独立してデータを取得
+   - `github`: `PHP-{version}` ブランチの UPGRADING ファイルをパース
+   - `php.watch`: HTML をスクレイプして変更点を抽出
+   - `local`: `data/php-{version}-changes.toml` を読み込み
+4. **分類**: 各変更を `breaking` / `deprecation` / `removed` / `new` に分類
+5. **出力**: ソースごとに結果を表示（JSON または テキスト）
+
+## ローカルデータの管理
+
+`data/*.toml` は AI が生成し、人間がレビューして管理します。
+
+```toml
+# data/php-8.5-changes.toml
+version = "8.5"
+from = "8.4"
+
+[[changes]]
+type = "deprecation"
+category = "syntax"
+description = "Backtick operator is deprecated"
+description_ja = "バッククォート演算子が非推奨"
+pattern = '`[^`]+`'
+replacement = "Use shell_exec() function instead"
 ```
 
 ## 対応ミドルウェア
 
 | Name | Status | データソース |
 |------|--------|-------------|
-| PHP  | ✅ 対応 | ローカル + php.watch |
+| PHP  | ✅ 対応 | github, php.watch, local |
 | Laravel | 🚧 計画中 | - |
 | MySQL | 🚧 計画中 | - |
 

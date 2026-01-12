@@ -5,4 +5,7 @@
 name = "php"
 current = "8.2"
 target = "^8.5"
-# source = "https://php.watch/versions"  # optional override
+
+# Data sources to fetch from (all will be queried independently)
+# Available: "github", "php.watch", "local"
+sources = ["github", "local"]
