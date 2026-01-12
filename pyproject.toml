@@ -1,0 +1,21 @@
+[project]
+name = "mw-auto-updater"
+version = "0.1.0"
+description = "Middleware upgrade checker - extracts breaking changes and deprecations between versions"
+requires-python = ">=3.9"
+dependencies = [
+    "tomli>=2.0.0; python_version < '3.11'",
+]
+
+[project.scripts]
+mw-upgrade-check = "mw_upgrade_check:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[dependency-groups]
+dev = []

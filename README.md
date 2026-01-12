@@ -27,9 +27,15 @@
 ```bash
 git clone https://github.com/mister-X-is-your-father/mw-auto-updater.git
 cd mw-auto-updater
+
+# uv で仮想環境セットアップ
+uv sync
+
+# または直接実行
+uv run mw-upgrade-check --output=text
 ```
 
-依存: Python 3.9+, jq (オプション)
+依存: Python 3.9+, [uv](https://docs.astral.sh/uv/) (推奨), jq (オプション)
 
 ## 使い方
 
@@ -47,13 +53,13 @@ target = "^8.5"      # 目標バージョン (^8.5 = 8.5.x)
 
 ```bash
 # テキスト形式で出力（人間が読みやすい）
-./mw-upgrade-check.py --output=text
+uv run mw-upgrade-check --output=text
 
 # JSON形式で出力（AI/スクリプト連携用）
-./mw-upgrade-check.py
+uv run mw-upgrade-check
 
 # ローカルデータのみ使用（Webフェッチなし）
-./mw-upgrade-check.py --no-web
+uv run mw-upgrade-check --no-web
 ```
 
 ### 3. 出力例
@@ -84,7 +90,7 @@ Summary:
 
 ```bash
 # 変更点を取得してプロジェクト内を検索
-./mw-upgrade-check.py | jq -r '.[].deprecations[].pattern | select(. != null)' | while read p; do
+uv run mw-upgrade-check | jq -r '.[].deprecations[].pattern | select(. != null)' | while read p; do
   grep -rn "$p" ./your-project/src/ 2>/dev/null
 done
 ```
@@ -101,9 +107,10 @@ done
 
 ```
 mw-auto-updater/
-├── config.toml           # 設定ファイル
-├── mw-upgrade-check.py   # メインツール (Python)
-├── php-upgrade-check.sh  # シェル版 (レガシー)
+├── pyproject.toml         # uv/Python プロジェクト設定
+├── config.toml            # ミドルウェア設定
+├── mw_upgrade_check.py    # メインツール
+├── php-upgrade-check.sh   # シェル版 (レガシー)
 └── data/
     ├── php-8.3-changes.json
     ├── php-8.4-changes.json
