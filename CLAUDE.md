@@ -10,9 +10,9 @@ Middleware upgrade checker that outputs breaking changes, deprecations, and new 
 
 ```bash
 # Config-based check (reads config.toml)
-./mw-upgrade-check.py                    # JSON output
-./mw-upgrade-check.py --output=text      # Human-readable output
-./mw-upgrade-check.py --no-web           # Use local data only
+uv run mw-upgrade-check                    # JSON output
+uv run mw-upgrade-check --output=text      # Human-readable output
+uv run mw-upgrade-check --no-web           # Use local data only
 
 # Direct version check (legacy shell script)
 ./php-upgrade-check.sh 8.2 8.5
@@ -34,20 +34,20 @@ target = "^8.5"    # ^8.5 = 8.5.x compatible
 
 ```
 config.toml              # TOML configuration (middleware, versions)
-mw-upgrade-check.py      # Main tool - config-driven, web-fetch support
+mw_upgrade_check.py      # Main tool - config-driven, web-fetch support
 php-upgrade-check.sh     # Legacy shell script for direct version checks
 data/
-  php-8.3-changes.json   # Changes from 8.2→8.3
-  php-8.4-changes.json   # Changes from 8.3→8.4
-  php-8.5-changes.json   # Changes from 8.4→8.5
+  php-8.3-changes.toml   # Changes from 8.2→8.3
+  php-8.4-changes.toml   # Changes from 8.3→8.4
+  php-8.5-changes.toml   # Changes from 8.4→8.5
 ```
 
 ## Data Format
 
-Each `data/php-X.X-changes.json` contains:
+Each `data/php-X.X-changes.toml` contains:
 - `version`: Target PHP version
 - `from`: Source PHP version
-- `changes[]`: Array of change objects with:
+- `[[changes]]`: Array of change objects with:
   - `type`: `deprecation` | `breaking` | `removed` | `new`
   - `category`: `syntax` | `function` | `class` | `ini` | `method` | `constant` | `attribute`
   - `description` / `description_ja`: Change description
@@ -56,9 +56,9 @@ Each `data/php-X.X-changes.json` contains:
 
 ## Adding New Middleware
 
-1. Add handler function in `mw-upgrade-check.py` (e.g., `get_laravel_changes()`)
+1. Add handler function in `mw_upgrade_check.py` (e.g., `get_laravel_changes()`)
 2. Register in the main processing loop
-3. Optionally add local JSON data files in `data/`
+3. Optionally add local TOML data files in `data/`
 
 ## Dependencies
 

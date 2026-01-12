@@ -1,0 +1,85 @@
+# PHP 8.3 Changes (from 8.2)
+version = "8.3"
+from = "8.2"
+
+[[changes]]
+type = "deprecation"
+category = "class"
+description = "Dynamic properties are deprecated (must use #[AllowDynamicProperties] attribute)"
+description_ja = "動的プロパティが非推奨（#[AllowDynamicProperties]属性が必要）"
+pattern = '->\\$[a-zA-Z_]'
+replacement = "Use declared properties or #[AllowDynamicProperties] attribute"
+
+[[changes]]
+type = "deprecation"
+category = "function"
+description = "Calling get_class() without arguments is deprecated"
+description_ja = "引数なしの get_class() 呼び出しが非推奨"
+pattern = 'get_class\(\)'
+replacement = "Use static::class or $this::class"
+
+[[changes]]
+type = "deprecation"
+category = "function"
+description = "Calling get_parent_class() without arguments is deprecated"
+description_ja = "引数なしの get_parent_class() 呼び出しが非推奨"
+pattern = 'get_parent_class\(\)'
+replacement = "Use parent::class"
+
+[[changes]]
+type = "breaking"
+category = "function"
+description = "mb_strimwidth() behavior change - width calculation now uses grapheme clusters"
+description_ja = "mb_strimwidth() の動作変更 - 幅計算がグラフェムクラスタを使用"
+pattern = "mb_strimwidth"
+replacement = "Review string width calculations"
+
+[[changes]]
+type = "deprecation"
+category = "class"
+description = "Using \"static\" in a non-static context is deprecated"
+description_ja = "非静的コンテキストでの static の使用が非推奨"
+pattern = "static::"
+replacement = "Use self:: or $this in non-static context"
+
+[[changes]]
+type = "breaking"
+category = "function"
+description = "array_sum() and array_product() now emit warnings for non-numeric values"
+description_ja = "array_sum() と array_product() が非数値で警告を出力"
+pattern = "array_sum|array_product"
+replacement = "Ensure array contains only numeric values"
+
+[[changes]]
+type = "deprecation"
+category = "function"
+description = "NumberFormatter::CURRENCY_ACCOUNTING is deprecated"
+description_ja = "NumberFormatter::CURRENCY_ACCOUNTING が非推奨"
+pattern = "CURRENCY_ACCOUNTING"
+replacement = "Use NumberFormatter::CURRENCY"
+
+[[changes]]
+type = "breaking"
+category = "function"
+description = "range() function is stricter with type coercion"
+description_ja = "range() 関数の型変換が厳格化"
+pattern = 'range\('
+replacement = "Ensure proper types are passed to range()"
+
+[[changes]]
+type = "new"
+category = "function"
+description = "New json_validate() function for validating JSON strings"
+description_ja = "新しい json_validate() 関数でJSONの検証が可能"
+
+[[changes]]
+type = "new"
+category = "syntax"
+description = "Typed class constants are now supported"
+description_ja = "型付きクラス定数がサポート"
+
+[[changes]]
+type = "new"
+category = "attribute"
+description = "#[Override] attribute to mark overridden methods"
+description_ja = "オーバーライドメソッドを示す #[Override] 属性"

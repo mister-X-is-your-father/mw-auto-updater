@@ -13,13 +13,13 @@
                     ┌────────────┴────────────┐
                     │                         │
               ┌─────▼─────┐           ┌───────▼───────┐
-              │ data/*.json│           │  Web Fetch    │
+              │ data/*.toml│           │  Web Fetch    │
               │ (ローカル)  │           │ (php.watch等) │
               └───────────┘           └───────────────┘
 ```
 
 1. **設定ファイル読込**: `config.toml` から対象ミドルウェアと現在/目標バージョンを取得
-2. **変更点取得**: ローカルJSONデータを優先し、なければWebから取得
+2. **変更点取得**: ローカルTOMLデータを優先し、なければWebから取得
 3. **分類・出力**: 破壊的変更・非推奨・削除・新機能に分類してJSON/テキスト出力
 
 ## インストール
@@ -112,9 +112,9 @@ mw-auto-updater/
 ├── mw_upgrade_check.py    # メインツール
 ├── php-upgrade-check.sh   # シェル版 (レガシー)
 └── data/
-    ├── php-8.3-changes.json
-    ├── php-8.4-changes.json
-    └── php-8.5-changes.json
+    ├── php-8.3-changes.toml
+    ├── php-8.4-changes.toml
+    └── php-8.5-changes.toml
 ```
 
 ## ライセンス

@@ -95,16 +95,44 @@ def fetch_php_changes_from_web(version: str) -> list[dict[str, Any]]:
 
 
 def load_local_changes(version: str, data_dir: Path) -> list[dict[str, Any]]:
-    """Load changes from local JSON file."""
-    file_path = data_dir / f"php-{version}-changes.json"
-    if file_path.exists():
+    """Load changes from local TOML file."""
+    file_path = data_dir / f"php-{version}-changes.toml"
+    if not file_path.exists():
+        return []
+
+    if tomllib is None:
+        # Fallback: simple TOML parser for changes
+        changes = []
+        current_change = None
+
         with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            changes = data.get("changes", [])
-            for change in changes:
-                change["version"] = version
-            return changes
-    return []
+            for line in f:
+                line = line.strip()
+                if line.startswith("#") or not line:
+                    continue
+                if line == "[[changes]]":
+                    if current_change:
+                        current_change["version"] = version
+                        changes.append(current_change)
+                    current_change = {}
+                elif "=" in line and current_change is not None:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    current_change[key] = value
+
+        if current_change:
+            current_change["version"] = version
+            changes.append(current_change)
+
+        return changes
+
+    with open(file_path, "rb") as f:
+        data = tomllib.load(f)
+        changes = data.get("changes", [])
+        for change in changes:
+            change["version"] = version
+        return changes
 
 
 def get_php_changes(
