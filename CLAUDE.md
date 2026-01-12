@@ -4,28 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PHP version upgrade checker that outputs breaking changes, deprecations, and new features between PHP versions. Designed for AI-assisted code migration workflows.
+Middleware upgrade checker that outputs breaking changes, deprecations, and new features between versions. Supports configuration-driven workflow with TOML and web-fetched changelogs.
 
 ## Commands
 
 ```bash
-# Check changes between PHP versions (outputs JSON)
+# Config-based check (reads config.toml)
+./mw-upgrade-check.py                    # JSON output
+./mw-upgrade-check.py --output=text      # Human-readable output
+./mw-upgrade-check.py --no-web           # Use local data only
+
+# Direct version check (legacy shell script)
 ./php-upgrade-check.sh 8.2 8.5
-./php-upgrade-check.sh --from=8.2 --to=8.5
-
-# Filter by change type
 ./php-upgrade-check.sh --from=8.2 --to=8.5 --type=deprecation
+```
 
-# Find affected code in a project
-./php-upgrade-check.sh 8.2 8.5 | jq -r '.changes[].pattern | select(. != null)' | while read p; do
-  grep -rn "$p" ./src/ 2>/dev/null || true
-done
+## Configuration
+
+Edit `config.toml` to specify middleware and versions:
+
+```toml
+[[middleware]]
+name = "php"
+current = "8.2"
+target = "^8.5"    # ^8.5 = 8.5.x compatible
 ```
 
 ## Architecture
 
 ```
-php-upgrade-check.sh     # Main CLI tool - merges version data and outputs JSON
+config.toml              # TOML configuration (middleware, versions)
+mw-upgrade-check.py      # Main tool - config-driven, web-fetch support
+php-upgrade-check.sh     # Legacy shell script for direct version checks
 data/
   php-8.3-changes.json   # Changes from 8.2→8.3
   php-8.4-changes.json   # Changes from 8.3→8.4
@@ -44,11 +54,13 @@ Each `data/php-X.X-changes.json` contains:
   - `pattern`: grep-compatible regex for finding affected code (null for new features)
   - `replacement`: Recommended fix or alternative
 
-## Adding New PHP Versions
+## Adding New Middleware
 
-1. Create `data/php-X.Y-changes.json` following the existing format
-2. Add the version to `VERSIONS` array in `php-upgrade-check.sh`
+1. Add handler function in `mw-upgrade-check.py` (e.g., `get_laravel_changes()`)
+2. Register in the main processing loop
+3. Optionally add local JSON data files in `data/`
 
 ## Dependencies
 
-- `jq` - Required for JSON processing
+- Python 3.9+
+- `jq` - For shell script JSON processing

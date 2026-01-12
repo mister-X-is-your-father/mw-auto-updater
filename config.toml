@@ -1,0 +1,8 @@
+# Middleware Upgrade Configuration
+# ミドルウェアアップグレード設定
+
+[[middleware]]
+name = "php"
+current = "8.2"
+target = "^8.5"
+# source = "https://php.watch/versions"  # optional override
