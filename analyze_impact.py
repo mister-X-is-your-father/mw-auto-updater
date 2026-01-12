@@ -26,6 +26,74 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Middleware-specific file extensions for searching
+MIDDLEWARE_FILE_EXTENSIONS: dict[str, list[str]] = {
+    "php": ["php", "phtml", "inc"],
+    "laravel": ["php", "blade.php", "phtml"],
+    "python": ["py", "pyw"],
+    "django": ["py", "html"],
+    "node": ["js", "ts", "mjs", "cjs"],
+    "react": ["js", "jsx", "ts", "tsx"],
+    "vue": ["vue", "js", "ts"],
+    "java": ["java"],
+    "spring": ["java", "xml", "properties", "yml", "yaml"],
+    "mysql": ["sql"],
+    "postgresql": ["sql"],
+    "ruby": ["rb", "erb"],
+    "rails": ["rb", "erb", "html.erb"],
+    "go": ["go"],
+    # Default: search common code files
+    "default": ["php", "js", "ts", "py", "java", "rb", "go", "rs", "sql"],
+}
+
+# Middleware display names for prompts
+MIDDLEWARE_NAMES: dict[str, str] = {
+    "php": "PHP",
+    "laravel": "Laravel/PHP",
+    "python": "Python",
+    "django": "Django/Python",
+    "node": "Node.js",
+    "react": "React/JavaScript",
+    "vue": "Vue.js",
+    "java": "Java",
+    "spring": "Spring/Java",
+    "mysql": "MySQL",
+    "postgresql": "PostgreSQL",
+    "ruby": "Ruby",
+    "rails": "Ruby on Rails",
+    "go": "Go",
+    "default": "ソフトウェア",
+}
+
+# File extension to code block language mapping
+EXT_TO_LANGUAGE: dict[str, str] = {
+    "php": "php",
+    "phtml": "php",
+    "inc": "php",
+    "blade.php": "php",
+    "py": "python",
+    "pyw": "python",
+    "js": "javascript",
+    "mjs": "javascript",
+    "cjs": "javascript",
+    "ts": "typescript",
+    "jsx": "jsx",
+    "tsx": "tsx",
+    "vue": "vue",
+    "java": "java",
+    "sql": "sql",
+    "rb": "ruby",
+    "erb": "erb",
+    "go": "go",
+    "rs": "rust",
+    "xml": "xml",
+    "yml": "yaml",
+    "yaml": "yaml",
+    "json": "json",
+    "html": "html",
+    "css": "css",
+}
+
 # Optional: anthropic SDK
 try:
     import anthropic
@@ -53,9 +121,23 @@ class ImpactResult:
     affected_files: list[str] = field(default_factory=list)
 
 
+def get_file_language(file_path: str) -> str:
+    """Get code block language from file extension."""
+    path = Path(file_path)
+    # Handle compound extensions like .blade.php
+    name = path.name
+    for ext, lang in EXT_TO_LANGUAGE.items():
+        if name.endswith(f".{ext}"):
+            return lang
+    # Fallback to simple extension
+    ext = path.suffix.lstrip(".")
+    return EXT_TO_LANGUAGE.get(ext, "")
+
+
 def search_codebase(
     codebase_path: Path,
     pattern: str,
+    middleware: str = "default",
     context_lines: int = 5
 ) -> list[CodeMatch]:
     """Search codebase for pattern matches using grep."""
@@ -64,19 +146,22 @@ def search_codebase(
     if not pattern:
         return matches
 
+    # Get file extensions for this middleware
+    extensions = MIDDLEWARE_FILE_EXTENSIONS.get(
+        middleware.lower(),
+        MIDDLEWARE_FILE_EXTENSIONS["default"]
+    )
+
+    # Build grep command with middleware-specific extensions
+    grep_cmd = ["grep", "-rn", "-E"]
+    for ext in extensions:
+        grep_cmd.append(f"--include=*.{ext}")
+    grep_cmd.extend([pattern, str(codebase_path)])
+
     try:
         # Use grep to find matches
         result = subprocess.run(
-            [
-                "grep", "-rn", "-E",
-                "--include=*.php",
-                "--include=*.js",
-                "--include=*.ts",
-                "--include=*.py",
-                "--include=*.java",
-                pattern,
-                str(codebase_path)
-            ],
+            grep_cmd,
             capture_output=True,
             text=True,
             timeout=60
@@ -137,7 +222,8 @@ def get_context(file_path: str, line_number: int, context_lines: int) -> tuple[l
 def analyze_with_claude_api(
     change: dict[str, Any],
     matches: list[CodeMatch],
-    api_key: str
+    api_key: str,
+    middleware: str = "default"
 ) -> str:
     """Analyze impact using Claude API."""
     if not HAS_ANTHROPIC:
@@ -146,12 +232,16 @@ def analyze_with_claude_api(
     if not matches:
         return "該当するコードは見つかりませんでした。"
 
+    # Get middleware display name
+    mw_name = MIDDLEWARE_NAMES.get(middleware.lower(), MIDDLEWARE_NAMES["default"])
+
     # Build context for AI
     code_context = []
     for match in matches[:10]:  # Limit to 10 matches
+        lang = get_file_language(match.file_path)
         context = "\n".join([
             f"File: {match.file_path}:{match.line_number}",
-            "```",
+            f"```{lang}",
             *match.context_before[-3:],
             f">>> {match.line_content}  # Line {match.line_number}",
             *match.context_after[:3],
@@ -160,7 +250,7 @@ def analyze_with_claude_api(
         ])
         code_context.append(context)
 
-    prompt = f"""あなたはPHPコードの専門家です。以下の破壊的変更が、提示されたコードにどのような影響を与えるか分析してください。
+    prompt = f"""あなたは{mw_name}コードの専門家です。以下の破壊的変更が、提示されたコードにどのような影響を与えるか分析してください。
 
 ## 破壊的変更
 - **説明**: {change.get('description', 'N/A')}
@@ -286,9 +376,12 @@ def generate_markdown_report(
                 lines.append(f"#### `{file_path}`")
                 lines.append("")
 
+                # Detect language from file extension
+                lang = get_file_language(file_path)
+
                 for match in file_matches[:5]:  # Limit per file
                     lines.append(f"**Line {match.line_number}**:")
-                    lines.append("```php")
+                    lines.append(f"```{lang}")
                     for ctx in match.context_before[-2:]:
                         lines.append(ctx)
                     lines.append(f">>> {match.line_content}  // ← 該当行")
@@ -381,6 +474,11 @@ def main():
         "--api-key",
         help="Anthropic API key (or set ANTHROPIC_API_KEY env var)"
     )
+    parser.add_argument(
+        "--middleware", "-m",
+        default="default",
+        help=f"Middleware type for file filtering. Available: {', '.join(MIDDLEWARE_FILE_EXTENSIONS.keys())}"
+    )
 
     args = parser.parse_args()
 
@@ -415,8 +513,8 @@ def main():
 
         print(f"[{i}/{len(changes)}] {desc}...", file=sys.stderr)
 
-        # Search codebase
-        matches = search_codebase(args.codebase, pattern) if pattern else []
+        # Search codebase with middleware-specific file filtering
+        matches = search_codebase(args.codebase, pattern, args.middleware) if pattern else []
         print(f"  Found {len(matches)} matches", file=sys.stderr)
 
         # AI analysis
@@ -424,7 +522,7 @@ def main():
         if matches:
             if args.ai == "api":
                 print(f"  Analyzing with Claude API...", file=sys.stderr)
-                ai_analysis = analyze_with_claude_api(change, matches, api_key)
+                ai_analysis = analyze_with_claude_api(change, matches, api_key, args.middleware)
             elif args.ai == "claude-code":
                 ai_analysis = generate_claude_code_prompt(change, matches)
 
