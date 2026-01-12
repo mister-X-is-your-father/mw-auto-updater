@@ -1,13 +1,21 @@
-# Virtual environment
-.venv/
+# Output directories (generated files)
+2_fetch/output/*.json
+2_fetch/output/*.md
+3_analyze/output/*.json
+3_analyze/output/*.md
+
+# Keep directory structure
+!*/.gitkeep
 
 # Python
 __pycache__/
 *.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
+.venv/
 
-# uv
-uv.lock
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
