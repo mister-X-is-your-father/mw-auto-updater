@@ -9,14 +9,17 @@ Middleware upgrade checker that outputs breaking changes, deprecations, and new 
 ## Commands
 
 ```bash
-# Config-based check (reads config.toml)
+# Phase 1: Config-based check (reads config.toml)
 uv run mw-upgrade-check                    # JSON output
 uv run mw-upgrade-check --output=text      # Human-readable output
-uv run mw-upgrade-check --no-web           # Use local data only
 
-# Direct version check (legacy shell script)
+# Phase 2: Impact analysis
+uv run python analyze_impact.py --codebase /path/to/project          # Basic analysis
+uv run python analyze_impact.py --codebase /path/to/project --ai api # With Claude API
+uv run python analyze_impact.py --codebase /path/to/project --ai claude-code # Claude Code prompts
+
+# Legacy shell script
 ./php-upgrade-check.sh 8.2 8.5
-./php-upgrade-check.sh --from=8.2 --to=8.5 --type=deprecation
 ```
 
 ## Configuration
@@ -34,8 +37,9 @@ target = "^8.5"    # ^8.5 = 8.5.x compatible
 
 ```
 config.toml              # TOML configuration (middleware, versions)
-mw_upgrade_check.py      # Main tool - config-driven, web-fetch support
-php-upgrade-check.sh     # Legacy shell script for direct version checks
+mw_upgrade_check.py      # Phase 1: Change detection (multi-source)
+analyze_impact.py        # Phase 2: Codebase impact analysis
+php-upgrade-check.sh     # Legacy shell script
 data/
   php-8.3-changes.toml   # Changes from 8.2→8.3
   php-8.4-changes.toml   # Changes from 8.3→8.4

@@ -7,6 +7,9 @@ dependencies = [
     "tomli>=2.0.0; python_version < '3.11'",
 ]
 
+[project.optional-dependencies]
+ai = ["anthropic>=0.18.0"]
+
 [project.scripts]
 mw-upgrade-check = "mw_upgrade_check:main"
 
