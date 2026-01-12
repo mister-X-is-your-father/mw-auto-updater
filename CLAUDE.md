@@ -4,27 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Middleware upgrade checker that outputs breaking changes, deprecations, and new features between versions. Supports configuration-driven workflow with TOML and web-fetched changelogs.
+Middleware upgrade checker with stage-based workflow. Outputs breaking changes, deprecations, and new features between versions with human review checkpoints.
+
+## Stage-Based Workflow
+
+```
+1_config/    →    2_fetch/    →    3_analyze/
+(設定検証)        (変更取得)        (影響分析)
+    ↓                ↓                 ↓
+ config.toml    changes.json     impact_report.md
+                 + review.md
+```
+
+Each stage requires manual execution (implicit human review between stages).
 
 ## Commands
 
 ```bash
-# Phase 1: Config-based check (reads config.toml)
-uv run mw-upgrade-check                    # JSON output
-uv run mw-upgrade-check --output=text      # Human-readable output
+# Stage 1: Validate configuration
+cd 1_config && uv run python run.py
 
-# Phase 2: Impact analysis
-uv run python analyze_impact.py --codebase /path/to/project          # Basic analysis
-uv run python analyze_impact.py --codebase /path/to/project --ai api # With Claude API
-uv run python analyze_impact.py --codebase /path/to/project --ai claude-code # Claude Code prompts
+# Stage 2: Fetch breaking changes
+cd 2_fetch && uv run python run.py
+# Review output/changes-*.json and output/review-*.md before proceeding
 
-# Legacy shell script
-./php-upgrade-check.sh 8.2 8.5
+# Stage 3: Analyze codebase impact
+cd 3_analyze && uv run python run.py --codebase /path/to/project
+cd 3_analyze && uv run python run.py --codebase /path/to/project --ai api  # With Claude API
+
+# Legacy (direct version check)
+./legacy/php-upgrade-check.sh 8.2 8.5
 ```
 
 ## Configuration
 
-Edit `config.toml` to specify middleware and versions:
+Edit `1_config/config.toml`:
 
 ```toml
 [[middleware]]
@@ -36,35 +50,35 @@ target = "^8.5"    # ^8.5 = 8.5.x compatible
 ## Architecture
 
 ```
-config.toml              # TOML configuration (middleware, versions)
-mw_upgrade_check.py      # Phase 1: Change detection (multi-source)
-analyze_impact.py        # Phase 2: Codebase impact analysis
-php-upgrade-check.sh     # Legacy shell script
-data/
-  php-8.3-changes.toml   # Changes from 8.2→8.3
-  php-8.4-changes.toml   # Changes from 8.3→8.4
-  php-8.5-changes.toml   # Changes from 8.4→8.5
+mw-auto-updater/
+├── 1_config/              # Stage 1: Configuration
+│   ├── config.toml        # Middleware versions to check
+│   ├── run.py             # Config validation
+│   └── README.md
+├── 2_fetch/               # Stage 2: Fetch changes
+│   ├── run.py             # Multi-source fetcher
+│   ├── data/*.toml        # Local change definitions
+│   └── output/            # JSON + Markdown for review
+├── 3_analyze/             # Stage 3: Impact analysis
+│   ├── run.py             # Codebase scanner + AI analysis
+│   ├── input/             # Symlink or copy from 2_fetch/output
+│   └── output/            # Impact report
+├── legacy/                # Old shell scripts
+└── docs/
+    └── parallel-agent-strategy.md  # Parallel processing guide
 ```
+
+## Supported Middleware
+
+PHP, Laravel, Symfony, Node.js, Python, Django, Ruby, Rails, Go, Rust, Java, Kotlin, .NET, Vue.js, React
 
 ## Data Format
 
-Each `data/php-X.X-changes.toml` contains:
-- `version`: Target PHP version
-- `from`: Source PHP version
-- `[[changes]]`: Array of change objects with:
-  - `type`: `deprecation` | `breaking` | `removed` | `new`
-  - `category`: `syntax` | `function` | `class` | `ini` | `method` | `constant` | `attribute`
-  - `description` / `description_ja`: Change description
-  - `pattern`: grep-compatible regex for finding affected code (null for new features)
-  - `replacement`: Recommended fix or alternative
+Each `2_fetch/data/php-X.X-changes.toml`:
+- `version`: Target version
+- `from`: Source version
+- `[[changes]]`: Array with `type`, `category`, `description`, `pattern`, `replacement`
 
-## Adding New Middleware
+## Development Guidelines
 
-1. Add handler function in `mw_upgrade_check.py` (e.g., `get_laravel_changes()`)
-2. Register in the main processing loop
-3. Optionally add local TOML data files in `data/`
-
-## Dependencies
-
-- Python 3.9+
-- `jq` - For shell script JSON processing
+See `docs/parallel-agent-strategy.md` for parallel agent processing rules when implementing features.
